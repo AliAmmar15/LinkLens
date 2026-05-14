@@ -1,0 +1,15 @@
+﻿{
+  "name": "linklens",
+  "version": "1.0.0",
+  "description": "Anti-phishing browser extension detecting typosquatting and homograph attacks",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@types/chrome": "latest"
+  }
+}
