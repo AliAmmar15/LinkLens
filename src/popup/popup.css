@@ -1,0 +1,72 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 300px;
+  padding: 14px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+#scan-count {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+#flagged-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#flagged-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 12px;
+  color: #c0392b;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #eee;
+  margin-bottom: 10px;
+}
+
+#whitelist-input {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+#whitelist-btn {
+  width: 100%;
+  padding: 7px;
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#whitelist-btn:hover {
+  background: #1a252f;
+}
