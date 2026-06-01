@@ -6,8 +6,11 @@ import { TyposquatResult } from '../types/index';
  * Implemented in Phase 2 — P2-C1.
  */
 export function normalizeInput(domain: string): string {
-  // TODO Phase 2 P2-C1: lowercase, remove www., strip TLD after last dot
-  return domain;
+  let d = domain.toLowerCase();
+  if (d.startsWith('www.')) d = d.slice(4);
+  const lastDot = d.lastIndexOf('.');
+  if (lastDot !== -1) d = d.slice(0, lastDot);
+  return d;
 }
 
 /**
@@ -16,9 +19,31 @@ export function normalizeInput(domain: string): string {
  * Implemented in Phase 2 — P2-C2.
  */
 export function computeDistance(a: string, b: string): number {
-  // TODO Phase 2 P2-C2: full DP matrix with transpositions
-  void a; void b;
-  return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const d: number[][] = Array.from({ length: rows }, (_, i) =>
+    Array.from({ length: cols }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,       // deletion
+        d[i][j - 1] + 1,       // insertion
+        d[i - 1][j - 1] + cost // substitution
+      );
+      // transposition
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+  }
+
+  return d[rows - 1][cols - 1];
 }
 
 /**
