@@ -6,10 +6,7 @@ import type { ScanMessage, ScanResponse } from '../types/index';
  * Implementation across Phase 2 (P2-C7) and Phase 3 (P3-C5, P3-C6).
  */
 async function scanPageLinks(): Promise<void> {
-  // TODO Phase 3 P3-C5: send SCAN_DOMAIN to service worker via chrome.runtime.sendMessage
-  // TODO Phase 3 P3-C6: inject warning badge on anchors where result.isFlagged is true
 
-  // suppress unused import until Phase 3
   void ({} as ScanMessage); void ({} as ScanResponse);
 
   const anchors = document.querySelectorAll<HTMLAnchorElement>('a[href]');
@@ -42,10 +39,62 @@ async function scanPageLinks(): Promise<void> {
     );
 
   console.log(`LinkLens: found ${anchors.length} links on this page.`);
-  links.forEach(({ hostname }) => {
-    console.log(`LinkLens: ${hostname}`);
+  
+  const scanPromises = links.map(async ({ anchor, hostname }) => {
+    try {
+      const response = await chrome.runtime.sendMessage<
+        ScanMessage,
+        ScanResponse
+      >({
+        type: 'SCAN_DOMAIN',
+        domain: hostname,
+      });
+
+      return {
+        anchor,
+        hostname,
+        result: response.result,
+      };
+    } catch (error) {
+      console.error(`LinkLens: failed to scan ${hostname}`, error);
+      return null;
+    }
+  });
+
+  const results = await Promise.all(scanPromises);
+
+  results.forEach(item => {
+    if (!item) {
+      return;
+    }
+
+    const { anchor, result } = item;
+
+    if (!result.isFlagged) {
+      return;
+    }
+
+    console.log(
+      `LinkLens: flagged ${result.domain} (${result.riskType})`
+    );
+
+    const badge = document.createElement('span');
+    badge.textContent = 'WARNING';
+
+    badge.title =
+      result.riskType === 'homograph'
+        ? 'Possible homograph attack'
+        : `Possible typosquat of ${
+            result.matchedTrustedDomain ?? 'trusted domain'
+          }`;
+
+    badge.style.marginLeft = '4px';
+    badge.style.cursor = 'help';
+
+    anchor.insertAdjacentElement('afterend', badge);
   });
 }
+
 
 // Run after DOM is ready
 if (document.readyState === 'loading') {
