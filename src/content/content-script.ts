@@ -1,24 +1,15 @@
-import type { ScanMessage, ScanResponse } from '../types/index';
-
 /**
  * Scans all hyperlinks on the page for phishing risk.
  * Sends hostnames to the service worker and injects warning badges on flagged links.
- * Implementation across Phase 2 (P2-C7) and Phase 3 (P3-C5, P3-C6).
  */
 async function scanPageLinks(): Promise<void> {
-  // TODO Phase 3 P3-C5: send SCAN_DOMAIN to service worker via chrome.runtime.sendMessage
-  // TODO Phase 3 P3-C6: inject warning badge on anchors where result.isFlagged is true
-
-  // suppress unused import until Phase 3
-  void ({} as ScanMessage); void ({} as ScanResponse);
-
   const anchors = document.querySelectorAll<HTMLAnchorElement>('a[href]');
+
   const links = Array.from(anchors)
     .map(anchor => {
       try {
         const url = new URL(anchor.href);
 
-        // Only process HTTP/HTTPS links
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
           return null;
         }
@@ -28,7 +19,6 @@ async function scanPageLinks(): Promise<void> {
           hostname: url.hostname,
         };
       } catch {
-        // Ignore malformed URLs
         return null;
       }
     })
@@ -42,8 +32,71 @@ async function scanPageLinks(): Promise<void> {
     );
 
   console.log(`LinkLens: found ${anchors.length} links on this page.`);
-  links.forEach(({ hostname }) => {
-    console.log(`LinkLens: ${hostname}`);
+  console.log(`LinkLens: scanning ${links.length} links`);
+
+  const scanPromises = links.map(async ({ anchor, hostname }) => {
+    try {
+      console.log(`LinkLens: sending SCAN_DOMAIN for ${hostname}`);
+
+      const response = await chrome.runtime.sendMessage({
+        type: 'SCAN_DOMAIN',
+        domain: hostname,
+      });
+
+      console.log(
+        `LinkLens: received response for ${hostname}`,
+        response
+      );
+
+      return {
+        anchor,
+        hostname,
+        result: response.result,
+      };
+    } catch (error) {
+      console.error(
+        `LinkLens: failed to scan ${hostname}`,
+        error
+      );
+      return null;
+    }
+  });
+
+  console.log('LinkLens: waiting for all responses...');
+
+  const results = await Promise.all(scanPromises);
+
+  console.log('LinkLens: all scans completed');
+
+  results.forEach(item => {
+    if (!item) {
+      return;
+    }
+
+    const { anchor, result } = item;
+    console.log(result);
+    if (!result?.isFlagged) {
+      return;
+    }
+
+    console.log(
+      `LinkLens: flagged ${result.domain} (${result.riskType})`
+    );
+
+    const badge = document.createElement('span');
+    badge.textContent = 'WARNING';
+
+    badge.title =
+      result.riskType === 'homograph'
+        ? 'Possible homograph attack'
+        : `Possible typosquat of ${
+            result.matchedTrustedDomain ?? 'trusted domain'
+          }`;
+
+    badge.style.marginLeft = '4px';
+    badge.style.cursor = 'help';
+
+    anchor.insertAdjacentElement('afterend', badge);
   });
 }
 
@@ -53,5 +106,5 @@ if (document.readyState === 'loading') {
     void scanPageLinks();
   });
 } else {
-  scanPageLinks();
+  void scanPageLinks();
 }
