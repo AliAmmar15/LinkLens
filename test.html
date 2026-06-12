@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LinkLens Test Page</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 20px; }
+    ul { line-height: 2.2; }
+    .label { color: #888; font-size: 12px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <h1>LinkLens Detection Test Page</h1>
+  <p>The extension should inject red badges next to suspicious links below.</p>
+
+  <h2>Typosquat targets</h2>
+  <ul>
+    <li><a href="https://paypol.com">paypol.com</a><span class="label">→ "paypal" (distance 1)</span></li>
+    <li><a href="https://g00gle.com">g00gle.com</a><span class="label">→ "google" (distance 2)</span></li>
+    <li><a href="https://amazom.com">amazom.com</a><span class="label">→ "amazon" (distance 1)</span></li>
+    <li><a href="https://githubb.com">githubb.com</a><span class="label">→ "github" (distance 1)</span></li>
+    <li><a href="https://microsooft.com">microsooft.com</a><span class="label">→ "microsoft" (distance 1)</span></li>
+  </ul>
+
+  <h2>Clean links (should NOT be flagged)</h2>
+  <ul>
+    <li><a href="https://google.com">google.com</a><span class="label">exact match</span></li>
+    <li><a href="https://github.com">github.com</a><span class="label">exact match</span></li>
+    <li><a href="https://wikipedia.org">wikipedia.org</a><span class="label">unrelated domain</span></li>
+  </ul>
+</body>
+</html>

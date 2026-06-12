@@ -1,4 +1,4 @@
-import { TyposquatResult } from '../types/index';
+import { TyposquatResult } from '../types/index.js';
 
 /**
  * Normalizes a domain for comparison.
@@ -52,7 +52,21 @@ export function computeDistance(a: string, b: string): number {
  * Implemented in Phase 3 — P3-C1.
  */
 export function isTyposquat(domain: string, trustedDomains: string[]): TyposquatResult {
-  // TODO Phase 3 P3-C1: normalize, compute distances, flag if min distance 1-2
-  void domain; void trustedDomains;
-  return { flagged: false, matchedDomain: null, score: 0 };
+  if (trustedDomains.length === 0) return { flagged: false, matchedDomain: null, score: 0 };
+
+  const normalized = normalizeInput(domain);
+  let minDistance = Infinity;
+  let closestDomain = '';
+
+  for (const trusted of trustedDomains) {
+    const dist = computeDistance(normalized, normalizeInput(trusted));
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestDomain = trusted;
+    }
+  }
+
+  if (minDistance === 0) return { flagged: false, matchedDomain: closestDomain, score: 0 };
+  if (minDistance <= 2) return { flagged: true, matchedDomain: closestDomain, score: minDistance };
+  return { flagged: false, matchedDomain: null, score: minDistance };
 }

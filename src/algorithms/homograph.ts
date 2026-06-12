@@ -1,4 +1,4 @@
-import { MixedScriptResult, HomographResult } from '../types/index';
+import { MixedScriptResult, HomographResult } from '../types/index.js';
 
 /**
  * Classifies a single character into its Unicode script block.
@@ -42,7 +42,6 @@ export function detectMixedScript(domain: string): MixedScriptResult {
  * Implemented in Phase 3 — P3-C2.
  */
 export function isSuspicious(domain: string): HomographResult {
-  // TODO Phase 3 P3-C2: call detectMixedScript, flag if isMixed is true
-  void domain;
-  return { flagged: false, scripts: [] };
+  const result = detectMixedScript(domain);
+  return { flagged: result.isMixed, scripts: result.scripts };
 }

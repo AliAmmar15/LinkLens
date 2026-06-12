@@ -1,25 +1,66 @@
-import type { WhitelistEntry } from '../types/index';
-import { addToWhitelist } from '../storage/storage';
+import { addToWhitelist } from '../storage/storage.js';
 
-/**
- * Popup script for the LinkLens browser action.
- * Displays flagged links and lets the user whitelist domains.
- * Full implementation in Phase 4 — P4-C1, P4-C2.
- */
+interface FlaggedEntry { hostname: string; riskType: string; matchedDomain: string | null; }
+interface GetResultsResponse { results: FlaggedEntry[]; }
+
 document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
-  const countEl = document.getElementById('scan-count');
-  const listEl = document.getElementById('flagged-list');
+  const countEl = document.getElementById('scan-count')!;
+  const listEl = document.getElementById('flagged-list')!;
   const input = document.getElementById('whitelist-input') as HTMLInputElement;
   const btn = document.getElementById('whitelist-btn') as HTMLButtonElement;
 
-  // suppress unused until Phase 4
-  void ({} as WhitelistEntry); void listEl;
+  // Query the active tab and ask its content script for scan results
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  // TODO Phase 4 P4-C2: query active tab via chrome.tabs.query
-  // TODO Phase 4 P4-C2: pull flagged link data from content script
-  // TODO Phase 4 P4-C2: render count and flagged domains into popup
+  if (!tab?.id) {
+    countEl.textContent = 'No active tab found.';
+    return;
+  }
 
-  if (countEl) countEl.textContent = 'Scan data not yet available.';
+  let results: FlaggedEntry[] = [];
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'GET_RESULTS' }) as GetResultsResponse;
+    results = response?.results ?? [];
+  } catch {
+    countEl.textContent = 'Page not yet scanned — try reloading.';
+    return;
+  }
+
+  if (results.length === 0) {
+    countEl.textContent = 'No suspicious links detected.';
+    countEl.style.color = '#27ae60';
+  } else {
+    countEl.textContent = `${results.length} suspicious link${results.length === 1 ? '' : 's'} detected`;
+    countEl.style.color = '#c0392b';
+
+    for (const entry of results) {
+      const li = document.createElement('li');
+      li.style.cssText = 'padding:4px 0;border-bottom:1px solid #eee;font-size:13px;';
+
+      const badge = document.createElement('span');
+      badge.style.cssText = [
+        'display:inline-block', 'margin-right:6px', 'padding:1px 5px',
+        'font-size:11px', 'font-weight:bold', 'color:#fff',
+        'background-color:#c0392b', 'border-radius:3px',
+      ].join(';');
+      badge.textContent = entry.riskType === 'typosquat' ? 'TYPOSQUAT' : 'HOMOGRAPH';
+
+      const host = document.createElement('span');
+      host.textContent = entry.hostname;
+
+      li.appendChild(badge);
+      li.appendChild(host);
+
+      if (entry.riskType === 'typosquat' && entry.matchedDomain) {
+        const hint = document.createElement('span');
+        hint.style.cssText = 'color:#888;font-size:11px;margin-left:6px;';
+        hint.textContent = `(looks like ${entry.matchedDomain})`;
+        li.appendChild(hint);
+      }
+
+      listEl.appendChild(li);
+    }
+  }
 
   btn.addEventListener('click', async (): Promise<void> => {
     const domain = input.value.trim();
@@ -27,9 +68,7 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
       await addToWhitelist(domain);
       input.value = '';
       btn.textContent = 'Added!';
-      setTimeout(() => {
-        btn.textContent = 'Add to whitelist';
-      }, 1500);
+      setTimeout(() => { btn.textContent = 'Add to whitelist'; }, 1500);
     }
   });
 });
