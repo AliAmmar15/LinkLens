@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { isTyposquat, normalizeInput } from '../algorithms/levenshtein.js';
 import { isSuspicious } from '../algorithms/homograph.js';
 
@@ -51,8 +53,67 @@ console.log('\nnormalizeInput:');
 assert('normalizeInput("www.Google.com") → "google"', normalizeInput('www.Google.com') === 'google');
 assert('normalizeInput("PayPal.com") → "paypal"', normalizeInput('PayPal.com') === 'paypal');
 
-// --- Summary ---
-console.log(`\nLinkLens integration test: ${passed}/${total} passed`);
+/** Runs the privacy verification (P5-19) and whitelist persistence (P5-20) checks. */
+async function runPrivacyAndPersistenceTests(): Promise<void> {
+  // --- Privacy verification (P5-19) ---
+  console.log('\nPrivacy verification:');
+
+  const privacySourceFiles = [
+    'src/algorithms/levenshtein.ts',
+    'src/algorithms/homograph.ts',
+    'src/storage/storage.ts',
+    'src/background/service-worker.ts',
+    'src/content/content-script.ts',
+  ];
+  const forbiddenKeywords = ['fetch(', 'XMLHttpRequest', 'WebSocket(', 'sendBeacon'];
+
+  for (const file of privacySourceFiles) {
+    const source = fs.readFileSync(path.join(process.cwd(), file), 'utf-8');
+    const matched = forbiddenKeywords.filter(keyword => source.includes(keyword));
+    assert(
+      matched.length === 0
+        ? `${file} → no outbound network calls`
+        : `${file} → found forbidden keyword(s): ${matched.join(', ')}`,
+      matched.length === 0
+    );
+  }
+
+  // --- Whitelist persistence (P5-20) ---
+  console.log('\nWhitelist persistence:');
+
+  const mockStorage: Record<string, unknown> = {};
+  const mockChrome = {
+    storage: {
+      local: {
+        get: (key: string) => Promise.resolve({ [key]: mockStorage[key] }),
+        set: (data: Record<string, unknown>) => { Object.assign(mockStorage, data); return Promise.resolve(); },
+      },
+    },
+  };
+  (global as any).chrome = mockChrome;
+
+  const { addToWhitelist, removeFromWhitelist, isWhitelisted, getWhitelist } = await import('../storage/storage.js');
+
+  await addToWhitelist('testdomain.com');
+  assert('addToWhitelist("testdomain.com") → isWhitelisted returns true', await isWhitelisted('testdomain.com'));
+
+  await addToWhitelist('testdomain.com');
+  const whitelistAfterDuplicate = await getWhitelist();
+  assert(
+    'addToWhitelist("testdomain.com") again → no duplicate entry',
+    whitelistAfterDuplicate.filter(entry => entry.domain === 'testdomain.com').length === 1
+  );
+
+  await removeFromWhitelist('testdomain.com');
+  assert('removeFromWhitelist("testdomain.com") → isWhitelisted returns false', (await isWhitelisted('testdomain.com')) === false);
+
+  assert('isWhitelisted("nothere.com") → false', (await isWhitelisted('nothere.com')) === false);
+
+  // --- Summary ---
+  console.log(`\nLinkLens integration test: ${passed}/${total} passed`);
+
+  await simulatePageScan();
+}
 
 // --- Performance audit (P4-C4) ---
 
@@ -125,4 +186,4 @@ async function simulatePageScan(): Promise<void> {
   }
 }
 
-simulatePageScan().catch(console.error);
+runPrivacyAndPersistenceTests().catch(console.error);

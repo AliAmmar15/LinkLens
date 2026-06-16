@@ -8,11 +8,13 @@
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "test:integration": "npx tsx src/tests/integration.ts",
+    "test:threshold": "npx tsx src/tests/threshold-analysis.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/chrome": "latest",
+    "@types/node": "^25.9.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
     "typescript": "latest",

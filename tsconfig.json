@@ -12,7 +12,7 @@
     "declarationDir": "./dist/types",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["chrome"],
+    "types": ["chrome", "node"],
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
