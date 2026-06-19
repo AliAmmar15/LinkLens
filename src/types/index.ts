@@ -46,5 +46,12 @@ export interface HomographResult {
   scripts: string[];
 }
 
+
+// Message sent when a user dismisses a warning badge
+export interface WarningDismissedMessage {
+  type: 'WARNING_DISMISSED';
+  hostname: string;
+}
+
 // Union of all message types (extendable in future phases)
-export type ExtensionMessage = ScanMessage;
+export type ExtensionMessage = ScanMessage | WarningDismissedMessage;
