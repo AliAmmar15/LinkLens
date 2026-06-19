@@ -3,9 +3,51 @@ interface RiskResult { domain: string; isFlagged: boolean; riskType: string; sco
 interface ScanMessage { type: 'SCAN_DOMAIN'; domain: string; }
 interface ScanResponse { result: RiskResult; }
 interface FlaggedEntry { hostname: string; riskType: string; matchedDomain: string | null; }
+interface WarningDismissedMessage { type: 'WARNING_DISMISSED'; hostname: string; }
 
 // Stores results so the popup can request them via message
 let linkLensResults: FlaggedEntry[] = [];
+
+/**
+ * Dismisses every warning badge associated with one hostname.
+ * Removes the badges, clears the anchor data attribute, updates the
+ * stored flagged count, and informs the popup when it is open.
+ */
+function dismissWarning(
+  hostname: string,
+  hostnameMap: Map<string, HTMLAnchorElement[]>
+): void {
+  const matchingAnchors = hostnameMap.get(hostname) ?? [];
+
+  for (const anchor of matchingAnchors) {
+    const nextElement = anchor.nextElementSibling;
+
+    if (
+      nextElement instanceof HTMLElement &&
+      nextElement.dataset['linklensBadge'] === hostname
+    ) {
+      nextElement.remove();
+    }
+
+    delete anchor.dataset['linklens'];
+  }
+
+  // Remove the dismissed hostname from the results returned to the popup.
+  linkLensResults = linkLensResults.filter(entry => entry.hostname !== hostname);
+
+  // Notify the popup so it can update its count and remove the list entry.
+  // The popup may be closed, so runtime.lastError is intentionally consumed.
+  const message: WarningDismissedMessage = {
+    type: 'WARNING_DISMISSED',
+    hostname,
+  };
+
+  chrome.runtime.sendMessage(message, () => {
+    void chrome.runtime.lastError;
+  });
+
+  console.log(`LinkLens: dismissed warning for ${hostname}`);
+}
 
 /**
  * Scans all hyperlinks on the page for phishing risk.
@@ -60,11 +102,12 @@ async function scanPageLinks(): Promise<void> {
       anchor.dataset['linklens'] = 'flagged';
 
       const badge = document.createElement('span');
+      badge.dataset['linklensBadge'] = hostname;
       badge.style.cssText = [
         'display:inline-block', 'margin-left:4px', 'padding:1px 5px',
         'font-size:11px', 'font-weight:bold', 'color:#ffffff',
         'background-color:#c0392b', 'border-radius:3px',
-        'vertical-align:middle', 'cursor:default', 'font-family:system-ui,sans-serif',
+        'vertical-align:middle', 'cursor:pointer', 'font-family:system-ui,sans-serif',
       ].join(';');
 
       badge.textContent =
@@ -73,8 +116,15 @@ async function scanPageLinks(): Promise<void> {
 
       badge.title =
         result.riskType === 'typosquat'
-          ? `Possible typosquat of ${result.matchedTrustedDomain}`
-          : `Mixed Unicode scripts detected`;
+          ? `Possible typosquat of ${result.matchedTrustedDomain}. Click to dismiss.`
+          : `Mixed Unicode scripts detected. Click to dismiss.`;
+
+      // Use Case 4: clicking the warning badge dismisses the warning.
+      badge.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dismissWarning(hostname, hostnameMap);
+      });
 
       anchor.insertAdjacentElement('afterend', badge);
     }
