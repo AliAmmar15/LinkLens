@@ -2,12 +2,46 @@ import { addToWhitelist } from '../storage/storage.js';
 
 interface FlaggedEntry { hostname: string; riskType: string; matchedDomain: string | null; }
 interface GetResultsResponse { results: FlaggedEntry[]; }
+interface WarningDismissedMessage { type: 'WARNING_DISMISSED'; hostname: string; }
+
+/**
+ * Updates the popup count using the number of currently displayed warnings.
+ */
+function updateFlaggedCount(countEl: HTMLElement, listEl: HTMLElement): void {
+  const count = listEl.querySelectorAll('li').length;
+
+  if (count === 0) {
+    countEl.textContent = 'No suspicious links detected.';
+    countEl.style.color = '#27ae60';
+  } else {
+    countEl.textContent = `${count} suspicious link${count === 1 ? '' : 's'} detected`;
+    countEl.style.color = '#c0392b';
+  }
+}
+
+/**
+ * Removes the dismissed hostname from the popup warning list.
+ */
+function removeListEntry(hostname: string, countEl: HTMLElement, listEl: HTMLElement): void {
+  const entries = Array.from(listEl.querySelectorAll<HTMLLIElement>('li[data-hostname]'));
+  const entry = entries.find(item => item.dataset['hostname'] === hostname);
+
+  entry?.remove();
+  updateFlaggedCount(countEl, listEl);
+}
 
 document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   const countEl = document.getElementById('scan-count')!;
   const listEl = document.getElementById('flagged-list')!;
   const input = document.getElementById('whitelist-input') as HTMLInputElement;
   const btn = document.getElementById('whitelist-btn') as HTMLButtonElement;
+
+  // Receive warning-dismissal updates from the active page's content script.
+  chrome.runtime.onMessage.addListener((message: WarningDismissedMessage) => {
+    if (message.type === 'WARNING_DISMISSED') {
+      removeListEntry(message.hostname, countEl, listEl);
+    }
+  });
 
   // Query the active tab and ask its content script for scan results
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -27,14 +61,11 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   }
 
   if (results.length === 0) {
-    countEl.textContent = 'No suspicious links detected.';
-    countEl.style.color = '#27ae60';
+    updateFlaggedCount(countEl, listEl);
   } else {
-    countEl.textContent = `${results.length} suspicious link${results.length === 1 ? '' : 's'} detected`;
-    countEl.style.color = '#c0392b';
-
     for (const entry of results) {
       const li = document.createElement('li');
+      li.dataset['hostname'] = entry.hostname;
       li.style.cssText = 'padding:4px 0;border-bottom:1px solid #eee;font-size:13px;';
 
       const badge = document.createElement('span');
@@ -60,6 +91,8 @@ document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
 
       listEl.appendChild(li);
     }
+
+    updateFlaggedCount(countEl, listEl);
   }
 
   btn.addEventListener('click', async (): Promise<void> => {
